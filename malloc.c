@@ -5,6 +5,7 @@
 // Don't include stdlb since the names will conflict?
 
 #define DEBUG  // comment out when not debugging
+#define MIN_SIZE sizeof(char) // minimum size of free space to be held by a heap block
 
 // TODO: align
 
@@ -26,7 +27,7 @@ struct block_meta {
   struct block_meta *next;
   int free;
   #ifdef DEBUG
-  int magic;    // For debugging only. TODO: remove this in non-debug mode.
+  int magic;    // For debugging only. 
   #endif
 };
 
@@ -35,13 +36,22 @@ struct block_meta {
 void *global_base = NULL;
 
 // Iterate through blocks until we find one that's large enough.
-// TODO: split block up if it's larger than necessary
 struct block_meta *find_free_block(struct block_meta **last, size_t size) {
   struct block_meta *current = global_base;
   while (current && !(current->free && current->size >= size)) {
     *last = current;
     current = current->next;
   }
+  // if block is big enough split it into two blocks, return the first
+  if (current->size > (META_SIZE + size + MIN_SIZE)) {
+	// calculate the offset for the pointer to the second part of the block
+	struct block_meta *temp = (struct block_meta *) ((char *) current + size + META_SIZE + MIN_SIZE);
+	// include the new block into the linked list of blocks	
+	temp->size = current->size - size - META_SIZE;
+	temp->next = current->next;
+	current->size = size;
+	current->next = temp; 
+  } 
   return current;
 }
 
