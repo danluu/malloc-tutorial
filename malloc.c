@@ -49,6 +49,7 @@ struct block_meta *find_free_block(struct block_meta **last, size_t size) {
 	// include the new block into the linked list of blocks	
 	temp->size = current->size - size - META_SIZE;
 	temp->next = current->next;
+	temp->free = 1;
 	current->size = size;
 	current->next = temp; 
   } 
