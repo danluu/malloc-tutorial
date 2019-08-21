@@ -100,17 +100,16 @@ void *malloc(size_t size) {
     if (!block) { // Failed to find free block.
       block = request_space(last, size);
       if (!block) {
-	return NULL;
+	    return NULL;
       }
     } else {      // Found free block
-      // TODO: consider splitting block here.
       block->free = 0;
 	  #ifdef DEBUG
       block->magic = 0x77777777;
 	  #endif
     }
   }
-  
+ 
   return(block+1);
 }
 
