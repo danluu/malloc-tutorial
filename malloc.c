@@ -4,6 +4,8 @@
 #include <unistd.h>
 // Don't include stdlb since the names will conflict?
 
+#define DEBUG  // comment out when not debugging
+
 // TODO: align
 
 // sbrk some extra space every time we need it.
@@ -23,7 +25,9 @@ struct block_meta {
   size_t size;
   struct block_meta *next;
   int free;
+  #ifdef DEBUG
   int magic;    // For debugging only. TODO: remove this in non-debug mode.
+  #endif
 };
 
 #define META_SIZE sizeof(struct block_meta)
@@ -56,7 +60,9 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
   block->size = size;
   block->next = NULL;
   block->free = 0;
+  #ifdef DEBUG
   block->magic = 0x12345678;
+  #endif
   return block;
 }
 
@@ -88,7 +94,9 @@ void *malloc(size_t size) {
     } else {      // Found free block
       // TODO: consider splitting block here.
       block->free = 0;
+	  #ifdef DEBUG
       block->magic = 0x77777777;
+	  #endif
     }
   }
   
@@ -115,9 +123,13 @@ void free(void *ptr) {
   // TODO: consider merging blocks once splitting blocks is implemented.
   struct block_meta* block_ptr = get_block_ptr(ptr);
   assert(block_ptr->free == 0);
+  #ifdef DEBUG
   assert(block_ptr->magic == 0x77777777 || block_ptr->magic == 0x12345678);
+  #endif
   block_ptr->free = 1;
+  #ifdef DEBUG
   block_ptr->magic = 0x55555555;  
+  #endif
 }
 
 void *realloc(void *ptr, size_t size) {
