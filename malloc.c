@@ -4,6 +4,9 @@
 #include <unistd.h>
 // Don't include stdlb since the names will conflict?
 
+#define DEBUG  // comment out when not debugging
+#define MIN_SIZE sizeof(char) // minimum size of free space to be held by a heap block
+
 // TODO: align
 
 // sbrk some extra space every time we need it.
@@ -23,7 +26,9 @@ struct block_meta {
   size_t size;
   struct block_meta *next;
   int free;
-  int magic;    // For debugging only. TODO: remove this in non-debug mode.
+  #ifdef DEBUG
+  int magic;    // For debugging only. 
+  #endif
 };
 
 #define META_SIZE sizeof(struct block_meta)
@@ -31,13 +36,23 @@ struct block_meta {
 void *global_base = NULL;
 
 // Iterate through blocks until we find one that's large enough.
-// TODO: split block up if it's larger than necessary
 struct block_meta *find_free_block(struct block_meta **last, size_t size) {
   struct block_meta *current = global_base;
   while (current && !(current->free && current->size >= size)) {
     *last = current;
     current = current->next;
   }
+  // if block is big enough split it into two blocks, return the first
+  if (current->size > (META_SIZE + size + MIN_SIZE)) {
+	// calculate the offset for the pointer to the second part of the block
+	struct block_meta *temp = (struct block_meta *) ((char *) current + size + META_SIZE + MIN_SIZE);
+	// include the new block into the linked list of blocks	
+	temp->size = current->size - size - META_SIZE;
+	temp->next = current->next;
+	temp->free = 1;
+	current->size = size;
+	current->next = temp; 
+  } 
   return current;
 }
 
@@ -56,7 +71,9 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
   block->size = size;
   block->next = NULL;
   block->free = 0;
+  #ifdef DEBUG
   block->magic = 0x12345678;
+  #endif
   return block;
 }
 
@@ -83,15 +100,16 @@ void *malloc(size_t size) {
     if (!block) { // Failed to find free block.
       block = request_space(last, size);
       if (!block) {
-	return NULL;
+	    return NULL;
       }
     } else {      // Found free block
-      // TODO: consider splitting block here.
       block->free = 0;
+	  #ifdef DEBUG
       block->magic = 0x77777777;
+	  #endif
     }
   }
-  
+ 
   return(block+1);
 }
 
@@ -115,9 +133,13 @@ void free(void *ptr) {
   // TODO: consider merging blocks once splitting blocks is implemented.
   struct block_meta* block_ptr = get_block_ptr(ptr);
   assert(block_ptr->free == 0);
+  #ifdef DEBUG
   assert(block_ptr->magic == 0x77777777 || block_ptr->magic == 0x12345678);
+  #endif
   block_ptr->free = 1;
+  #ifdef DEBUG
   block_ptr->magic = 0x55555555;  
+  #endif
 }
 
 void *realloc(void *ptr, size_t size) {
